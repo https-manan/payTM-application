@@ -1,9 +1,11 @@
 const express = require('express');
-const authentication = require('./ZodMiddleware');
-const router = express.Router();
-const User = require('../db');
 const jwt = require('jsonwebtoken');
+const authentication = require('./ZodMiddleware');
+const verifyToken = require('./verifyToken');
+const User = require('../db');
+
 require('dotenv').config();
+const router = express.Router();
 const secret = process.env.JWT_SECRET;
 
 // Signup Route
@@ -26,11 +28,22 @@ router.post('/signup', async (req, res) => {
 
         const newUser = await User.create({ username, password, firstName, lastName });
 
-        const token = jwt.sign({ userId: newUser._id }, secret, { expiresIn: '1d' });
+        const token = jwt.sign(
+            {
+                userId: newUser._id,
+                username: newUser.username,
+                firstname: newUser.firstName,
+                lastname: newUser.lastName
+            },secret,{ expiresIn: '1d' });
 
+        // Respond with token and user data
         res.status(200).send({
             msg: 'User created successfully in DB',
-            token: token
+            token,
+            username,
+            password,
+            firstName,
+            lastName
         });
 
     } catch (error) {
@@ -39,37 +52,52 @@ router.post('/signup', async (req, res) => {
     }
 });
 
+// Signin Route
 
-//SignIn route
+router.post('/signin', verifyToken, (req, res) => {
+    res.status(200).send({
+        success: true,
+        message: 'User signed in successfully',
+        userId: req.user.userId,
+        username: req.user.username,
+        firstname: req.user.firstname,
+        lastname: req.user.lastname
+    });
+});
 
-router.post('/signin', (req, res) => {
+//Info update router
+
+router.put('/update', verifyToken, async (req, res) => {
     try {
-        const authHeader = req.headers.authorization;
+        const { password, firstname, lastname } = req.body;
+        const userId = req.user.userId;
 
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return res.status(401).send({
-                success: false,
-                message: 'Token missing or malformed'
+        const updatedUser = await User.findByIdAndUpdate(userId,{password,firstName: firstname,lastName: lastname},{ new: true });
+
+        if (updatedUser) {
+            return res.status(200).send({
+                message: "User updated successfully",
+                firstname: updatedUser.firstName,
+                lastname: updatedUser.lastName
+            });
+        } else {
+            return res.status(404).send({
+                message: "User not found"
             });
         }
-
-        const token = authHeader.split(' ')[1];
-
-        const decoded = jwt.verify(token, secret);
-
-        res.status(200).send({
-            success: true,
-            message: 'User signed in successfully',
-            userId: decoded.userId
-        });
-
     } catch (error) {
         console.error(error);
-        res.status(401).send({
-            success: false,
-            message: 'Invalid or expired token'
+        return res.status(500).send({
+            message: "Error while updating information"
         });
     }
 });
 
-module.exports = route;
+
+//This route is to get all the users by first and last name
+
+
+
+
+
+module.exports = router;

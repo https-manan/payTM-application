@@ -8,10 +8,10 @@ const cors = require('cors');
 
 //cors
 app.use(cors());
+app.use(express.json());  
 
 //routes
 app.use('/api/v1/',rootRouter);
-app.use(express.json());
 
 
 
