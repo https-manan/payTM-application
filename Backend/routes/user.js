@@ -2,15 +2,17 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const authentication = require('./ZodMiddleware');
 const verifyToken = require('./verifyToken');
-const User = require('../db');
+const { User, Account } = require('../db'); 
+
 
 require('dotenv').config();
 const router = express.Router();
 const secret = process.env.JWT_SECRET;
 
-// Signup Route
+
 router.post('/signup', async (req, res) => {
     try {
+        const randomBalance = Math.random() * 10000;
         const { username, password, firstName, lastName } = req.body;
 
         const parsed = authentication.safeParse({ username, password, firstName, lastName });
@@ -28,22 +30,28 @@ router.post('/signup', async (req, res) => {
 
         const newUser = await User.create({ username, password, firstName, lastName });
 
+        await Account.create({
+            userId: newUser._id,
+            balance: randomBalance
+        });
+
         const token = jwt.sign(
             {
                 userId: newUser._id,
                 username: newUser.username,
                 firstname: newUser.firstName,
-                lastname: newUser.lastName
-            },secret,{ expiresIn: '1d' });
+                lastname: newUser.lastName,
+            },
+            secret,
+            { expiresIn: '1d' }
+        );
 
-        // Respond with token and user data
         res.status(200).send({
-            msg: 'User created successfully in DB',
+            msg: 'User created successfully',
             token,
-            username,
-            password,
-            firstName,
-            lastName
+            username: newUser.username,
+            firstName: newUser.firstName,
+            lastName: newUser.lastName
         });
 
     } catch (error) {
@@ -52,7 +60,6 @@ router.post('/signup', async (req, res) => {
     }
 });
 
-// Signin Route
 
 router.post('/signin', verifyToken, (req, res) => {
     res.status(200).send({
@@ -65,14 +72,21 @@ router.post('/signin', verifyToken, (req, res) => {
     });
 });
 
-//Info update router
 
 router.put('/update', verifyToken, async (req, res) => {
     try {
         const { password, firstname, lastname } = req.body;
         const userId = req.user.userId;
 
-        const updatedUser = await User.findByIdAndUpdate(userId,{password,firstName: firstname,lastName: lastname},{ new: true });
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            {
+                password,
+                firstName: firstname,
+                lastName: lastname
+            },
+            { new: true }
+        );
 
         if (updatedUser) {
             return res.status(200).send({
@@ -94,10 +108,27 @@ router.put('/update', verifyToken, async (req, res) => {
 });
 
 
-//This route is to get all the users by first and last name
+router.get('/bulk', verifyToken, async (req, res) => {
+    try {
+        const { firstname, lastname } = req.query;
 
+        const filter = {};
+        if (firstname) filter.firstName = firstname;
+        if (lastname) filter.lastName = lastname;
 
+        const users = await User.find(filter);
 
+        const result = users.map((e) => ({
+            username: e.username,
+            firstname: e.firstName,
+            lastname: e.lastName
+        }));
 
+        res.status(200).send({ users: result });
+    } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: 'Error fetching users' });
+    }
+});
 
 module.exports = router;
