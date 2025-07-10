@@ -1,9 +1,9 @@
 import React from 'react';
 
-function Button({ label }) {
+function Button({ label,onClick }) {
   return (
     <div>
-      <button className="w-full bg-black text-white py-2 rounded hover:bg-gray-800 transition duration-200">
+      <button onClick={onClick} className="w-full bg-black text-white py-2 rounded hover:bg-gray-800 transition duration-200">
         {label}
       </button>
     </div>

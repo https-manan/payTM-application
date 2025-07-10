@@ -13,7 +13,7 @@ function Signin() {
         <SubHeading label="Enter your credentials to access your account" />
         
         <div className="mt-4">
-          <InputBox label="Email" placeholder="manan@gmail.com" />
+          <InputBox label="UserName" placeholder="https.manan" />
           <InputBox label="Password" placeholder="******" />
         </div>
 

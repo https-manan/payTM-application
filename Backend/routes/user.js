@@ -107,16 +107,19 @@ router.put('/update', verifyToken, async (req, res) => {
     }
 });
 
-
 router.get('/bulk', verifyToken, async (req, res) => {
     try {
-        const { firstname, lastname } = req.query;
+        const { filter } = req.query;
 
-        const filter = {};
-        if (firstname) filter.firstName = firstname;
-        if (lastname) filter.lastName = lastname;
+        const query = {};
+        if (filter) {
+            query.$or = [
+                { firstName: { $regex: filter, $options: 'i' } },
+                { lastName: { $regex: filter, $options: 'i' } }
+            ];
+        }
 
-        const users = await User.find(filter);
+        const users = await User.find(query);
 
         const result = users.map((e) => ({
             username: e.username,
