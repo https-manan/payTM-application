@@ -1,11 +1,12 @@
 const express = require('express');
 const authentication = require('./ZodMiddleware'); // not used here, just keeping your structure
-const { User, Account } = require('../db'); 
+const { Account } = require('../db'); 
 const mongoose = require('mongoose');
+const verifyToken = require('./verifyToken');
 const router = express.Router();
 
 // GET /balance
-router.get("/balance", async (req, res) => {
+router.get("/balance",verifyToken,async (req, res) => {
     try {
         const account = await Account.findOne({ userId: req.userId });
 
@@ -23,7 +24,7 @@ router.get("/balance", async (req, res) => {
 });
 
 // POST /transfer
-router.post("/transfer", async (req, res) => {
+router.post("/transfer", verifyToken, async (req, res) => {
     const session = await mongoose.startSession();
 
     try {
@@ -35,6 +36,11 @@ router.post("/transfer", async (req, res) => {
             return res.status(400).json({ message: "Invalid amount" });
         }
 
+        if (!to || !mongoose.Types.ObjectId.isValid(to)) {
+            await session.abortTransaction();
+            return res.status(400).json({ message: "Invalid recipient ID" });
+        }
+
         const account = await Account.findOne({ userId: req.userId }).session(session);
         if (!account || account.balance < amount) {
             await session.abortTransaction();
@@ -44,11 +50,15 @@ router.post("/transfer", async (req, res) => {
         const toAccount = await Account.findOne({ userId: to }).session(session);
         if (!toAccount) {
             await session.abortTransaction();
-            return res.status(400).json({ message: "Invalid account" });
+            return res.status(400).json({ message: "Recipient account not found" });
         }
 
-        await Account.updateOne({ userId: req.userId }, { $inc: { balance: -amount } }).session(session);
-        await Account.updateOne({ userId: to }, { $inc: { balance: amount } }).session(session);
+        // Update balances
+        account.balance -= amount;
+        toAccount.balance += amount;
+
+        await account.save({ session });
+        await toAccount.save({ session });
 
         await session.commitTransaction();
         res.json({ message: "Transfer successful" });
@@ -60,5 +70,6 @@ router.post("/transfer", async (req, res) => {
         session.endSession();
     }
 });
+
 
 module.exports = router;
