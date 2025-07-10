@@ -33,7 +33,7 @@ router.post("/transfer", verifyToken, async (req, res) => {
 
         if (!amount || typeof amount !== "number" || amount <= 0) {
             await session.abortTransaction();
-            return res.status(400).json({ message: "Invalid amount" });
+            return res.status(400).json({ message: "Enter a valid amount" });
         }
 
         if (!to || !mongoose.Types.ObjectId.isValid(to)) {
@@ -59,7 +59,6 @@ router.post("/transfer", verifyToken, async (req, res) => {
 
         await account.save({ session });
         await toAccount.save({ session });
-
         await session.commitTransaction();
         res.json({ message: "Transfer successful" });
     } catch (error) {
@@ -70,6 +69,12 @@ router.post("/transfer", verifyToken, async (req, res) => {
         session.endSession();
     }
 });
+
+
+
+
+
+
 
 
 module.exports = router;
